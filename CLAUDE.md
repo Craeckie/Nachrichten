@@ -122,7 +122,7 @@ top episode's URL against `python3 zdf_heute_url.py`.
 
 ### Local release — `scripts/release.sh`
 `./scripts/release.sh <keystore-password>` stops the Gradle daemon, runs `assembleDebug`, then
-signs the APK with `apksigner`, writing `heute-nachrichten-signed.apk` to the project root.
+signs the APK with `apksigner`, writing `my-app-signed.apk` to the project root.
 Prerequisites:
 1. **`apksigner` on PATH** (ships with SDK build-tools):
    ```bash

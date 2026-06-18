@@ -21,3 +21,9 @@ keystore.properties
 /.idea
 
 *.local.md
+
+# Signed release artifacts (scripts/release.sh output) and signing keystores
+*.apk
+*.idsig
+*.jks
+*.keystore
