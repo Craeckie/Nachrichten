@@ -1,0 +1,33 @@
+{
+  "priorityList": [
+    {
+      "formitaeten": [
+        {
+          "mimeType": "application/x-mpegURL",
+          "qualities": [
+            {
+              "quality": "auto",
+              "audio": { "tracks": [ { "uri": "https://zdf.example/auto.m3u8", "class": "main", "language": "deu" } ] }
+            }
+          ]
+        },
+        {
+          "mimeType": "video/mp4",
+          "qualities": [
+            {
+              "quality": "high",
+              "audio": { "tracks": [ { "uri": "https://zdf.example/high.mp4", "class": "main", "language": "deu" } ] }
+            },
+            {
+              "quality": "fhd",
+              "audio": { "tracks": [
+                { "uri": "https://zdf.example/fhd.mp4", "class": "main", "language": "deu" },
+                { "uri": "https://zdf.example/fhd-ad.mp4", "class": "ad", "language": "deu" }
+              ] }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

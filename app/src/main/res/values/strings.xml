@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Heute Nachrichten</string>
+    <string name="refresh">Aktualisieren</string>
+    <string name="retry">Erneut versuchen</string>
+    <string name="empty">Keine Sendungen gefunden.</string>
+    <string name="open_with">Öffnen mit</string>
+    <string name="no_player">Kein Videoplayer (VLC/mpv) gefunden.</string>
+</resources>
