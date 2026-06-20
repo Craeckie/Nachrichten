@@ -36,6 +36,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import de.heute.nachrichten.R
 import de.heute.nachrichten.data.Episode
 import de.heute.nachrichten.player.PlayerLauncher
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -159,7 +164,7 @@ private fun EpisodeCard(
             )
             episode.date?.let { date ->
                 Text(
-                    text = date.substringBefore('T'),
+                    text = relativeDateLabel(date),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
@@ -174,6 +179,29 @@ private fun EpisodeCard(
                 )
             }
         }
+    }
+}
+
+/**
+ * Render an episode's editorialDate (ISO-8601, e.g. "2026-06-18T19:00:00+02:00") as a German
+ * relative label: Heute / Gestern / Vorgestern, the weekday for the rest of the past week, and
+ * a plain dd.MM.yyyy date beyond that. Falls back to the bare date string if parsing fails.
+ */
+internal fun relativeDateLabel(
+    isoDate: String,
+    today: LocalDate = LocalDate.now(),
+): String {
+    val date = try {
+        LocalDate.parse(isoDate.substringBefore('T'))
+    } catch (e: java.time.format.DateTimeParseException) {
+        return isoDate.substringBefore('T')
+    }
+    return when (ChronoUnit.DAYS.between(date, today)) {
+        0L -> "Heute"
+        1L -> "Gestern"
+        2L -> "Vorgestern"
+        in 3L..6L -> date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.GERMAN)
+        else -> date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
     }
 }
 
