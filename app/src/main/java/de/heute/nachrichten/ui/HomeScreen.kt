@@ -22,6 +22,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -49,6 +50,7 @@ fun HomeScreen(
     viewModel: HeuteViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val resolving by viewModel.resolving.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -69,32 +71,40 @@ fun HomeScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            when (val s = state) {
-                is UiState.Loading ->
-                    CircularProgressIndicator(Modifier.align(Alignment.Center))
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (val s = state) {
+                    is UiState.Loading ->
+                        CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                is UiState.Error ->
-                    ErrorView(
-                        message = s.message,
-                        onRetry = viewModel::refresh,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
-
-                is UiState.Success ->
-                    if (s.episodes.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.empty),
+                    is UiState.Error ->
+                        ErrorView(
+                            message = s.message,
+                            onRetry = viewModel::refresh,
                             modifier = Modifier.align(Alignment.Center),
                         )
-                    } else {
-                        EpisodeList(
-                            episodes = s.episodes,
-                            resolving = resolving,
-                            contentPadding = padding,
-                            onClick = viewModel::openEpisode,
-                        )
-                    }
+
+                    is UiState.Success ->
+                        if (s.episodes.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.empty),
+                                modifier = Modifier.align(Alignment.Center),
+                            )
+                        } else {
+                            EpisodeList(
+                                episodes = s.episodes,
+                                resolving = resolving,
+                                contentPadding = PaddingValues(0.dp),
+                                onClick = viewModel::openEpisode,
+                            )
+                        }
+                }
             }
         }
     }

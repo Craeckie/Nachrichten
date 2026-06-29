@@ -31,6 +31,10 @@ class HeuteViewModel : ViewModel() {
     private val _state = MutableStateFlow<UiState>(UiState.Loading)
     val state: StateFlow<UiState> = _state.asStateFlow()
 
+    /** True while a pull-to-refresh reload is in flight on top of an already-loaded list. */
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     /** canonical IDs of episodes currently being resolved (drives a per-card spinner). */
     private val _resolving = MutableStateFlow<Set<String>>(emptySet())
     val resolving: StateFlow<Set<String>> = _resolving.asStateFlow()
@@ -43,13 +47,19 @@ class HeuteViewModel : ViewModel() {
     }
 
     fun refresh() {
-        _state.value = UiState.Loading
+        val isReload = _state.value is UiState.Success
+        if (isReload) {
+            _isRefreshing.value = true
+        } else {
+            _state.value = UiState.Loading
+        }
         viewModelScope.launch {
             _state.value = try {
                 UiState.Success(repo.loadEpisodes())
             } catch (e: Exception) {
                 UiState.Error(e.message ?: "Failed to load episodes.")
             }
+            _isRefreshing.value = false
         }
     }
 
