@@ -38,6 +38,8 @@ import de.heute.nachrichten.R
 import de.heute.nachrichten.data.Episode
 import de.heute.nachrichten.player.PlayerLauncher
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
@@ -212,6 +214,26 @@ internal fun relativeDateLabel(
         2L -> "Vorgestern"
         in 3L..6L -> date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.GERMAN)
         else -> date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+    }
+}
+
+/**
+ * Determine if an episode's broadcast time is within the last 12 hours.
+ * Parses the ISO-8601 editorialDate string and compares against the given (or current) time.
+ * Returns false on any parsing error.
+ */
+internal fun isRecentBroadcast(
+    isoDate: String,
+    now: LocalDateTime = LocalDateTime.now(),
+): Boolean {
+    if (isoDate.isBlank()) return false
+    return try {
+        val zonedBroadcast = ZonedDateTime.parse(isoDate)
+        val broadcastLocal = zonedBroadcast.toLocalDateTime()
+        val minutesSinceBroadcast = ChronoUnit.MINUTES.between(broadcastLocal, now)
+        minutesSinceBroadcast <= 12 * 60
+    } catch (e: Exception) {
+        false
     }
 }
 
