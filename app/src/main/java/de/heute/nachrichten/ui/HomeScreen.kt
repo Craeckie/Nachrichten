@@ -57,6 +57,7 @@ fun HomeScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val resolving by viewModel.resolving.collectAsStateWithLifecycle()
+    val currentTime by viewModel.currentTime.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -105,6 +106,7 @@ fun HomeScreen(
                             EpisodeList(
                                 episodes = s.episodes,
                                 resolving = resolving,
+                                currentTime = currentTime,
                                 contentPadding = PaddingValues(0.dp),
                                 onClick = viewModel::openEpisode,
                             )
@@ -141,6 +143,7 @@ private fun HandlePlayEvents(
 private fun EpisodeList(
     episodes: List<Episode>,
     resolving: Set<String>,
+    currentTime: LocalDateTime,
     contentPadding: PaddingValues,
     onClick: (Episode) -> Unit,
 ) {
@@ -152,6 +155,7 @@ private fun EpisodeList(
             EpisodeCard(
                 episode = episode,
                 isResolving = episode.canonical in resolving,
+                currentTime = currentTime,
                 onClick = { onClick(episode) },
             )
         }
@@ -162,6 +166,7 @@ private fun EpisodeList(
 private fun EpisodeCard(
     episode: Episode,
     isResolving: Boolean,
+    currentTime: LocalDateTime,
     onClick: () -> Unit,
 ) {
     Card(
@@ -170,7 +175,7 @@ private fun EpisodeCard(
             .padding(horizontal = 12.dp, vertical = 6.dp)
             .border(
                 width = 3.dp,
-                color = if (isRecentBroadcast(episode.date ?: ""))
+                color = if (isRecentBroadcast(episode.date ?: "", currentTime))
                     MaterialTheme.colorScheme.primary
                 else
                     Color.Transparent,
@@ -187,7 +192,7 @@ private fun EpisodeCard(
             )
             episode.date?.let { date ->
                 Text(
-                    text = relativeDateLabel(date),
+                    text = relativeDateLabel(date, currentTime.toLocalDate()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),

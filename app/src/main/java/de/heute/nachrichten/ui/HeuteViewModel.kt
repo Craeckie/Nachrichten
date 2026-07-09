@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.heute.nachrichten.data.Episode
 import de.heute.nachrichten.data.ZdfRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 
 sealed interface UiState {
     data object Loading : UiState
@@ -42,8 +44,21 @@ class HeuteViewModel : ViewModel() {
     private val _events = MutableSharedFlow<PlayEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<PlayEvent> = _events.asSharedFlow()
 
+    private val _currentTime = MutableStateFlow(LocalDateTime.now())
+    val currentTime: StateFlow<LocalDateTime> = _currentTime.asStateFlow()
+
     init {
         refresh()
+        startTimeUpdater()
+    }
+
+    private fun startTimeUpdater() {
+        viewModelScope.launch {
+            while (true) {
+                delay(3_600_000) // Update every hour
+                _currentTime.value = LocalDateTime.now()
+            }
+        }
     }
 
     fun refresh() {
