@@ -83,8 +83,6 @@ jobs:
       - name: Sign APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           VERSION_NAME: ${{ steps.version.outputs.name }}
         run: |
           BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n1)
@@ -92,9 +90,9 @@ jobs:
           SIGNED=app/build/outputs/apk/release/app-${VERSION_NAME}.apk
           "${BUILD_TOOLS}apksigner" sign \
             --ks "$RUNNER_TEMP/release.jks" \
-            --ks-key-alias "$KEY_ALIAS" \
+            --ks-key-alias my-key \
             --ks-pass "pass:$KEYSTORE_PASSWORD" \
-            --key-pass "pass:${KEY_PASSWORD:-$KEYSTORE_PASSWORD}" \
+            --key-pass "pass:$KEYSTORE_PASSWORD" \
             --v1-signing-enabled false \
             --v2-signing-enabled true \
             --v3-signing-enabled false \
