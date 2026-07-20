@@ -45,6 +45,13 @@ class HomeScreenTest {
     }
 
     @Test
+    fun isRecentBroadcast_futureBroadcast_returnsFalse() {
+        val now = LocalDateTime.of(2026, 6, 30, 20, 0, 0)
+        val isoDate = "2026-06-30T21:00:00+02:00"
+        assertFalse(isRecentBroadcast(isoDate, now))
+    }
+
+    @Test
     fun isRecentBroadcast_malformedDate_returnsFalse() {
         val now = LocalDateTime.of(2026, 6, 30, 20, 0, 0)
         val isoDate = "not-a-date"

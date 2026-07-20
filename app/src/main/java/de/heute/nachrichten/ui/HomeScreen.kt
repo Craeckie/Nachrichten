@@ -35,6 +35,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.heute.nachrichten.R
@@ -60,6 +62,11 @@ fun HomeScreen(
     val currentTime by viewModel.currentTime.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Re-anchor the clock every time the app returns to the foreground, so the relative
+    // labels and "recent" highlight are recomputed against the real now instead of a value
+    // captured when the (retained) ViewModel was first created.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.syncTime() }
 
     HandlePlayEvents(viewModel, context, snackbarHostState)
 
@@ -247,7 +254,7 @@ internal fun isRecentBroadcast(
         val zonedBroadcast = ZonedDateTime.parse(isoDate)
         val broadcastLocal = zonedBroadcast.toLocalDateTime()
         val minutesSinceBroadcast = ChronoUnit.MINUTES.between(broadcastLocal, now)
-        minutesSinceBroadcast <= 12 * 60
+        minutesSinceBroadcast in 0..(12 * 60)
     } catch (e: Exception) {
         false
     }

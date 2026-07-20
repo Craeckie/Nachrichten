@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.heute.nachrichten.data.Episode
 import de.heute.nachrichten.data.ZdfRepository
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -49,19 +48,15 @@ class HeuteViewModel : ViewModel() {
 
     init {
         refresh()
-        startTimeUpdater()
     }
 
-    private fun startTimeUpdater() {
-        viewModelScope.launch {
-            while (true) {
-                delay(3_600_000) // Update every hour
-                _currentTime.value = LocalDateTime.now()
-            }
-        }
+    /** Re-anchor the clock that drives the relative labels and "recent" highlight. */
+    fun syncTime() {
+        _currentTime.value = LocalDateTime.now()
     }
 
     fun refresh() {
+        syncTime()
         val isReload = _state.value is UiState.Success
         if (isReload) {
             _isRefreshing.value = true
