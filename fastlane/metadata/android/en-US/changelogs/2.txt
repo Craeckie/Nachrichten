@@ -1,0 +1,1 @@
+Fix "no episodes found" error caused by a ZDF page layout change, and add diagnostics for future breakages.
