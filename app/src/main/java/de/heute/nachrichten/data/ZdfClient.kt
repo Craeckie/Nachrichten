@@ -51,12 +51,18 @@ object ZdfClient {
 
     private val apiTokenRegex = Regex("""apiToken\\?":\\?"([A-Za-z0-9]+)""")
 
-    // NB: the body between title and contentType uses [^}]*? (stays within one JSON node),
-    // never a greedy/DOTALL match — otherwise a clip teaser's title bleeds across to a later
-    // EPISODE marker and resolves the wrong video. (Documented bug in the Python original.)
+    // Every node on the page (real episode or clip teaser) opens with this header.
     private val episodeRegex = Regex(
         """\\"id\\":\\"([0-9a-f-]{36})\\",\\"canonical\\":\\"([^\\]+)\\",""" +
-            """\\"title\\":\\"([^\\]+)\\"[^}]*?\\"contentType\\":\\"EPISODE"""
+            """\\"title\\":\\"([^\\]+)\\""""
+    )
+    // A real broadcast (as opposed to a clip teaser) carries a populated episodeInfo;
+    // teasers have "seasonNumber":null,"episodeNumber":null. This marker can sit behind
+    // other closed sub-objects within the node, so the block can't be bounded by "next }"
+    // (that's why episodeRegex above no longer tries to reach a node-closing marker itself —
+    // blocks are bounded by "next header's start" instead, in findEpisodes).
+    private val episodeMarkerRegex = Regex(
+        """\\"episodeInfo\\":\{\\"seasonNumber\\":\d+,\\"episodeNumber\\":\d+"""
     )
     private val sharingUrlRegex = Regex("""sharingUrl\\":\\"([^\\]+)""")
     private val ptmdTemplateRegex = Regex("""ptmdTemplate\\":\\"([^\\]+)""")
@@ -92,18 +98,24 @@ object ZdfClient {
     /** Pull the short-lived videoToken.apiToken out of the embedded (escaped) JSON. */
     fun extractApiToken(html: String): String =
         apiTokenRegex.find(html)?.groupValues?.get(1)
-            ?: throw ZdfException("Could not find apiToken in page (ZDF may have changed the layout).")
+            ?: throw ZdfException(
+                "Could not find apiToken in page (ZDF may have changed the layout). " +
+                    "Page length: ${html.length} bytes."
+            )
 
     /**
-     * Locate the most recent EPISODE nodes (newest first) and return up to [limit] of them.
-     * Generalizes the Python `find_first_episode`. Picks the DEFAULT media variant (or the
-     * first available if there is no DEFAULT). Episodes without any playable media are skipped.
+     * Locate the most recent real broadcast nodes (newest first, clip teasers skipped) and
+     * return up to [limit] of them. Generalizes the Python `find_first_episode`. Picks the
+     * DEFAULT media variant (or the first available if there is no DEFAULT). Candidates
+     * without a populated episodeInfo (clip teasers) or without any playable media (e.g.
+     * today's broadcast before it has aired) are skipped.
      */
     fun findEpisodes(html: String, limit: Int = 5, wantDgs: Boolean = false): List<Episode> {
         val matches = episodeRegex.findAll(html).toList()
-        if (matches.isEmpty()) throw ZdfException("No EPISODE entries found on the page.")
+        if (matches.isEmpty()) throw ZdfException("No id/canonical/title headers found on the page.")
 
         val wantedType = if (wantDgs) "DGS" else "DEFAULT"
+        var markerHits = 0
         val episodes = mutableListOf<Episode>()
         for ((i, m) in matches.withIndex()) {
             if (episodes.size >= limit) break
@@ -112,6 +124,9 @@ object ZdfClient {
                 if (i + 1 < matches.size) matches[i + 1].range.first
                 else minOf(m.range.last + 1 + 12_000, html.length)
             val block = html.substring(start, end)
+
+            if (!episodeMarkerRegex.containsMatchIn(block)) continue
+            markerHits++
 
             // A media node looks like {"__typename":"VodMedia","ptmdTemplate":Y,…,"vodMediaType":X},
             // i.e. vodMediaType FOLLOWS ptmdTemplate inside the same node. Pair each ptmdTemplate
@@ -139,7 +154,12 @@ object ZdfClient {
                 )
             )
         }
-        if (episodes.isEmpty()) throw ZdfException("No playable EPISODE entries found.")
+        if (episodes.isEmpty()) {
+            throw ZdfException(
+                "No playable episode found on the page (${matches.size} node header(s) found, " +
+                    "$markerHits matched the episode marker, none had a ptmdTemplate)."
+            )
+        }
         return episodes
     }
 

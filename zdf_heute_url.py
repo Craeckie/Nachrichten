@@ -64,66 +64,87 @@ def extract_api_token(html: str) -> str:
     m = re.search(r'apiToken\\?":\\?"([A-Za-z0-9]+)', html)
     if not m:
         raise ExtractError(
-            "Could not find apiToken in page (ZDF may have changed the layout)."
+            "Could not find apiToken in page (ZDF may have changed the layout). "
+            f"Page length: {len(html)} bytes."
         )
     return m.group(1)
 
 
 def find_first_episode(html: str, want_dgs: bool = False) -> dict:
-    """Locate the first EPISODE node and return its title/canonical/ptmd.
+    """Locate the first real (non-teaser) episode node and return its
+    title/canonical/ptmd.
 
     Returns a dict: {title, canonical, sharing_url, ptmd_template, vod_media_type}
     """
-    # NB: use [^}]*? (stays within a single JSON node) rather than .*? — a
-    # greedy/DOTALL match would stretch a clip's title across to a later
-    # EPISODE marker and pick the wrong node.
-    ep_re = re.compile(
+    # Every node on the page (real episode or clip teaser) opens with this
+    # header. There is no reliable single-node closing brace to bound the
+    # search on anymore (see episode_marker_re below), so blocks are bounded
+    # by "next header's start" instead.
+    header_re = re.compile(
         r'\\"id\\":\\"([0-9a-f-]{36})\\"'
         r',\\"canonical\\":\\"([^\\]+)\\"'
         r',\\"title\\":\\"([^\\]+)\\"'
-        r'[^}]*?\\"contentType\\":\\"EPISODE\\"'
     )
-    episodes = list(ep_re.finditer(html))
-    if not episodes:
-        raise ExtractError("No EPISODE entries found on the page.")
+    # A real broadcast (as opposed to a clip teaser) carries a populated
+    # episodeInfo; teasers have "seasonNumber":null,"episodeNumber":null.
+    # This marker can sit behind other closed sub-objects within the node
+    # (there may be a "}" between the header and it), which is exactly why
+    # the block can no longer be bounded by "next }".
+    episode_marker_re = re.compile(
+        r'\\"episodeInfo\\":\{\\"seasonNumber\\":\d+,\\"episodeNumber\\":\d+'
+    )
 
-    first = episodes[0]
-    block_end = episodes[1].start() if len(episodes) > 1 else first.end() + 12000
-    block = html[first.start():block_end]
+    headers = list(header_re.finditer(html))
+    if not headers:
+        raise ExtractError("No id/canonical/title headers found on the page.")
 
-    # sharingUrl, if present in the block
-    sm = re.search(r'sharingUrl\\":\\"([^\\]+)', block)
-    sharing_url = sm.group(1) if sm else None
+    marker_hits = 0
+    for i, h in enumerate(headers):
+        block_end = headers[i + 1].start() if i + 1 < len(headers) else h.end() + 12000
+        block = html[h.start():block_end]
+        if not episode_marker_re.search(block):
+            continue
+        marker_hits += 1
 
-    # Collect (vodMediaType, ptmdTemplate) pairs within this episode's block.
-    variants: list[tuple[str, str]] = []
-    for pm in re.finditer(r'ptmdTemplate\\":\\"([^\\]+)\\"', block):
-        ctx = block[max(0, pm.start() - 160): pm.end() + 160]
-        vt = re.search(r'vodMediaType\\":\\"([^\\]+)', ctx)
-        variants.append((vt.group(1) if vt else "UNKNOWN", pm.group(1)))
+        # sharingUrl, if present in the block
+        sm = re.search(r'sharingUrl\\":\\"([^\\]+)', block)
+        sharing_url = sm.group(1) if sm else None
 
-    if not variants:
-        raise ExtractError(
-            f"Episode '{first.group(3)}' has no playable media (ptmdTemplate)."
-        )
+        # Collect (vodMediaType, ptmdTemplate) pairs within this episode's block.
+        variants: list[tuple[str, str]] = []
+        for pm in re.finditer(r'ptmdTemplate\\":\\"([^\\]+)\\"', block):
+            ctx = block[max(0, pm.start() - 160): pm.end() + 160]
+            vt = re.search(r'vodMediaType\\":\\"([^\\]+)', ctx)
+            variants.append((vt.group(1) if vt else "UNKNOWN", pm.group(1)))
 
-    wanted_type = "DGS" if want_dgs else "DEFAULT"
-    chosen = next((v for v in variants if v[0] == wanted_type), None)
-    if chosen is None:
-        # Fall back to the first variant, but tell the user what we got.
-        chosen = variants[0]
-        sys.stderr.write(
-            f"note: no {wanted_type} variant found; "
-            f"using '{chosen[0]}' instead.\n"
-        )
+        if not variants:
+            # Not yet aired / no stream published yet for this broadcast —
+            # move on to the next matching candidate rather than failing.
+            continue
 
-    return {
-        "title": first.group(3),
-        "canonical": first.group(2),
-        "sharing_url": sharing_url,
-        "ptmd_template": chosen[1],
-        "vod_media_type": chosen[0],
-    }
+        wanted_type = "DGS" if want_dgs else "DEFAULT"
+        chosen = next((v for v in variants if v[0] == wanted_type), None)
+        if chosen is None:
+            # Fall back to the first variant, but tell the user what we got.
+            chosen = variants[0]
+            sys.stderr.write(
+                f"note: no {wanted_type} variant found; "
+                f"using '{chosen[0]}' instead.\n"
+            )
+
+        return {
+            "title": h.group(3),
+            "canonical": h.group(2),
+            "sharing_url": sharing_url,
+            "ptmd_template": chosen[1],
+            "vod_media_type": chosen[0],
+        }
+
+    raise ExtractError(
+        "No playable episode found on the page "
+        f"({len(headers)} node header(s) found, {marker_hits} matched the "
+        "episode marker, none had a ptmdTemplate)."
+    )
 
 
 def fetch_ptmd(ptmd_template: str, token: str, player_id: str) -> dict:
