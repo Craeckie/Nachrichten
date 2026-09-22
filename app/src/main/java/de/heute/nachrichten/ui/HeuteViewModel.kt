@@ -1,8 +1,10 @@
 package de.heute.nachrichten.ui
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import de.heute.nachrichten.data.Episode
+import de.heute.nachrichten.data.QualityPreference
 import de.heute.nachrichten.data.ZdfRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,9 +27,10 @@ sealed interface PlayEvent {
     data class Failed(val message: String) : PlayEvent
 }
 
-class HeuteViewModel : ViewModel() {
+class HeuteViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repo = ZdfRepository()
+    private val qualityPreference = QualityPreference(application)
 
     private val _state = MutableStateFlow<UiState>(UiState.Loading)
     val state: StateFlow<UiState> = _state.asStateFlow()
@@ -46,6 +49,10 @@ class HeuteViewModel : ViewModel() {
     private val _currentTime = MutableStateFlow(LocalDateTime.now())
     val currentTime: StateFlow<LocalDateTime> = _currentTime.asStateFlow()
 
+    /** null = "best" (today's default behavior). */
+    private val _selectedQuality = MutableStateFlow(qualityPreference.quality)
+    val selectedQuality: StateFlow<String?> = _selectedQuality.asStateFlow()
+
     init {
         refresh()
     }
@@ -53,6 +60,11 @@ class HeuteViewModel : ViewModel() {
     /** Re-anchor the clock that drives the relative labels and "recent" highlight. */
     fun syncTime() {
         _currentTime.value = LocalDateTime.now()
+    }
+
+    fun setQuality(quality: String?) {
+        qualityPreference.quality = quality
+        _selectedQuality.value = quality
     }
 
     fun refresh() {
@@ -78,7 +90,11 @@ class HeuteViewModel : ViewModel() {
         viewModelScope.launch {
             _resolving.value = _resolving.value + episode.canonical
             try {
-                _events.emit(PlayEvent.Launch(repo.resolveStreamUrl(episode)))
+                _events.emit(
+                    PlayEvent.Launch(
+                        repo.resolveStreamUrl(episode, preferredQuality = _selectedQuality.value)
+                    )
+                )
             } catch (e: Exception) {
                 _events.emit(PlayEvent.Failed(e.message ?: "Could not open video."))
             } finally {

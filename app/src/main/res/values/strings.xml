@@ -6,4 +6,5 @@
     <string name="empty">Keine Sendungen gefunden.</string>
     <string name="open_with">Öffnen mit</string>
     <string name="no_player">Kein Videoplayer (VLC/mpv) gefunden.</string>
+    <string name="quality_best">Beste</string>
 </resources>

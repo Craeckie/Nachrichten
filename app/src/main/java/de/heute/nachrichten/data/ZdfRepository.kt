@@ -28,12 +28,13 @@ class ZdfRepository {
     suspend fun resolveStreamUrl(
         episode: Episode,
         playerId: String = ZdfClient.DEFAULT_PLAYER_ID,
+        preferredQuality: String? = null,
     ): String = withContext(Dispatchers.IO) {
         val token = apiToken ?: ZdfClient.extractApiToken(ZdfClient.fetchPage(ZdfClient.DEFAULT_PAGE))
             .also { apiToken = it }
         val streams = ZdfClient.collectStreams(ZdfClient.fetchPtmd(episode.ptmdTemplate, token, playerId))
         if (streams.isEmpty()) throw ZdfException("PTMD contained no stream URLs.")
-        val best = ZdfClient.pickBestProgressive(streams)
+        val best = ZdfClient.pickBestProgressive(streams, preferredQuality)
             ?: ZdfClient.pickBestHls(streams)
             ?: throw ZdfException("No usable stream found.")
         best.uri ?: throw ZdfException("Selected stream has no URL.")

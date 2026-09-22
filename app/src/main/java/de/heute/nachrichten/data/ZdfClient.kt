@@ -42,6 +42,9 @@ object ZdfClient {
     const val DEFAULT_PAGE = "https://www.zdf.de/magazine/heute-19-uhr-102"
     const val DEFAULT_PLAYER_ID = "android_native_5" // returns the widest set of formats
     private const val API_BASE = "https://api.zdf.de"
+
+    /** Progressive qualities to offer in the format-selection UI, best first. */
+    val PROGRESSIVE_QUALITIES = listOf("fhd", "hd", "veryhigh", "high", "low")
     private const val UA =
         "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
 
@@ -212,11 +215,22 @@ object ZdfClient {
     private fun qualityRank(quality: String?): Int =
         QUALITY_ORDER.indexOf(quality).let { if (it >= 0) it else QUALITY_ORDER.size }
 
-    /** Best progressive file: prefer mp4 over webm, then best quality. */
-    fun pickBestProgressive(streams: List<Stream>): Stream? =
-        streams.filter { it.mimeType == "video/mp4" || it.mimeType == "video/webm" }
-            .sortedWith(compareBy({ it.mimeType != "video/mp4" }, { qualityRank(it.quality) }))
+    /**
+     * Best progressive file: prefer mp4 over webm, then best quality. If [preferred] is given
+     * and a stream of that exact quality exists, it wins regardless of rank, so a chosen
+     * quality is honored when available; otherwise falls back to the best-first pick so a tap
+     * never fails to open just because that quality isn't offered for this episode.
+     */
+    fun pickBestProgressive(streams: List<Stream>, preferred: String? = null): Stream? {
+        val progressive = streams.filter { it.mimeType == "video/mp4" || it.mimeType == "video/webm" }
+        if (preferred != null) {
+            progressive.filter { it.quality == preferred }
+                .minByOrNull { it.mimeType != "video/mp4" }
+                ?.let { return it }
+        }
+        return progressive.sortedWith(compareBy({ it.mimeType != "video/mp4" }, { qualityRank(it.quality) }))
             .firstOrNull()
+    }
 
     /** Best HLS: the 'auto' master playlist (full adaptive set) first, then best quality. */
     fun pickBestHls(streams: List<Stream>): Stream? =

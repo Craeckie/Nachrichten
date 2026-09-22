@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -27,7 +29,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.heute.nachrichten.R
 import de.heute.nachrichten.data.Episode
+import de.heute.nachrichten.data.ZdfClient
 import de.heute.nachrichten.player.PlayerLauncher
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -60,6 +65,7 @@ fun HomeScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val resolving by viewModel.resolving.collectAsStateWithLifecycle()
     val currentTime by viewModel.currentTime.collectAsStateWithLifecycle()
+    val selectedQuality by viewModel.selectedQuality.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -76,6 +82,10 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    QualitySelector(
+                        selectedQuality = selectedQuality,
+                        onQualitySelected = viewModel::setQuality,
+                    )
                     TextButton(onClick = viewModel::refresh) {
                         Text(stringResource(R.string.refresh))
                     }
@@ -123,6 +133,46 @@ fun HomeScreen(
         }
     }
 }
+
+/**
+ * Format-selection dropdown in the top bar. [selectedQuality] is null for "best" (today's
+ * default). Resolution only ever happens at tap time in [HeuteViewModel.openEpisode], so
+ * changing the selection here never triggers a reload of the episode list.
+ */
+@Composable
+private fun QualitySelector(
+    selectedQuality: String?,
+    onQualitySelected: (String?) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(qualityLabel(selectedQuality))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(qualityLabel(null)) },
+                onClick = {
+                    onQualitySelected(null)
+                    expanded = false
+                },
+            )
+            ZdfClient.PROGRESSIVE_QUALITIES.forEach { quality ->
+                DropdownMenuItem(
+                    text = { Text(qualityLabel(quality)) },
+                    onClick = {
+                        onQualitySelected(quality)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun qualityLabel(quality: String?): String =
+    quality?.uppercase() ?: stringResource(R.string.quality_best)
 
 @Composable
 private fun HandlePlayEvents(

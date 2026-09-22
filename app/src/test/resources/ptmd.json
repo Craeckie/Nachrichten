@@ -19,6 +19,10 @@
               "audio": { "tracks": [ { "uri": "https://zdf.example/high.mp4", "class": "main", "language": "deu" } ] }
             },
             {
+              "quality": "hd",
+              "audio": { "tracks": [ { "uri": "https://zdf.example/hd.mp4", "class": "main", "language": "deu" } ] }
+            },
+            {
               "quality": "fhd",
               "audio": { "tracks": [
                 { "uri": "https://zdf.example/fhd.mp4", "class": "main", "language": "deu" },

@@ -76,6 +76,26 @@ class ZdfClientTest {
     }
 
     @Test
+    fun picksPreferredQualityWhenAvailable() {
+        val streams = ZdfClient.collectStreams(ptmd)
+        // hd is offered but ranks below fhd -- an explicit preference still wins over "best"
+        assertEquals(
+            "https://zdf.example/hd.mp4",
+            ZdfClient.pickBestProgressive(streams, preferred = "hd")?.uri,
+        )
+    }
+
+    @Test
+    fun fallsBackToBestWhenPreferredQualityUnavailable() {
+        val streams = ZdfClient.collectStreams(ptmd)
+        // "low" isn't offered for this fixture -- a tap must still resolve to something
+        assertEquals(
+            "https://zdf.example/fhd.mp4",
+            ZdfClient.pickBestProgressive(streams, preferred = "low")?.uri,
+        )
+    }
+
+    @Test
     fun picksHlsAutoMaster() {
         val streams = ZdfClient.collectStreams(ptmd)
         assertEquals("https://zdf.example/auto.m3u8", ZdfClient.pickBestHls(streams)?.uri)
