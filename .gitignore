@@ -27,3 +27,6 @@ keystore.properties
 *.idsig
 *.jks
 *.keystore
+
+# Superpowers session scratch (subagent-driven-development progress)
+.superpowers/
