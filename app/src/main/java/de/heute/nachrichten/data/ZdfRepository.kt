@@ -10,13 +10,15 @@ import kotlinx.coroutines.withContext
  *
  * All work runs on [Dispatchers.IO]. The token (~2 days TTL) is never persisted; it lives only
  * for the session and is refreshed on demand if missing.
+ *
+ * `open` only so tests can stand in a fake for the network.
  */
-class ZdfRepository {
+open class ZdfRepository {
 
     @Volatile
     private var apiToken: String? = null
 
-    suspend fun loadEpisodes(
+    open suspend fun loadEpisodes(
         pageUrl: String = ZdfClient.DEFAULT_PAGE,
         limit: Int = 5,
     ): List<Episode> = withContext(Dispatchers.IO) {

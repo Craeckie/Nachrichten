@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -94,41 +96,62 @@ fun HomeScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        PullToRefreshBox(
+        HomeContent(
+            state = state,
             isRefreshing = isRefreshing,
+            resolving = resolving,
+            currentTime = currentTime,
             onRefresh = viewModel::refresh,
+            onOpen = viewModel::openEpisode,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                when (val s = state) {
-                    is UiState.Loading ->
-                        CircularProgressIndicator(Modifier.align(Alignment.Center))
+        )
+    }
+}
 
-                    is UiState.Error ->
-                        ErrorView(
-                            message = s.message,
-                            onRetry = viewModel::refresh,
-                            modifier = Modifier.align(Alignment.Center),
+/**
+ * The stateless body below the top bar: pull-to-refresh around whatever [state] holds.
+ * Kept separate from [HomeScreen] so it can be driven in tests without the network.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun HomeContent(
+    state: UiState,
+    isRefreshing: Boolean,
+    resolving: Set<String>,
+    currentTime: LocalDateTime,
+    onRefresh: () -> Unit,
+    onOpen: (Episode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        modifier = modifier,
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            when (state) {
+                is UiState.Loading ->
+                    CircularProgressIndicator(Modifier.align(Alignment.Center))
+
+                is UiState.Error ->
+                    PullableCentered {
+                        ErrorView(message = state.message, onRetry = onRefresh)
+                    }
+
+                is UiState.Success ->
+                    if (state.episodes.isEmpty()) {
+                        PullableCentered { Text(stringResource(R.string.empty)) }
+                    } else {
+                        EpisodeList(
+                            episodes = state.episodes,
+                            resolving = resolving,
+                            currentTime = currentTime,
+                            contentPadding = PaddingValues(0.dp),
+                            onClick = onOpen,
                         )
-
-                    is UiState.Success ->
-                        if (s.episodes.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.empty),
-                                modifier = Modifier.align(Alignment.Center),
-                            )
-                        } else {
-                            EpisodeList(
-                                episodes = s.episodes,
-                                resolving = resolving,
-                                currentTime = currentTime,
-                                contentPadding = PaddingValues(0.dp),
-                                onClick = viewModel::openEpisode,
-                            )
-                        }
-                }
+                    }
             }
         }
     }
@@ -173,6 +196,24 @@ private fun QualitySelector(
 @Composable
 private fun qualityLabel(quality: String?): String =
     quality?.uppercase() ?: stringResource(R.string.quality_best)
+
+/**
+ * Centres [content] in a vertically scrollable box that fills the screen.
+ * [PullToRefreshBox] only sees a pull through nested scroll from a scrollable child, so a plain
+ * message (error, empty list) has to scroll for the pull to reach it, like the list does.
+ * `verticalScroll` keeps the screen height as the minimum, so the message stays centred.
+ */
+@Composable
+private fun PullableCentered(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+}
 
 @Composable
 private fun HandlePlayEvents(

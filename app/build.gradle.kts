@@ -34,6 +34,10 @@ android {
     kotlinOptions { jvmTarget = "11" }
 
     buildFeatures { compose = true }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -52,6 +56,10 @@ dependencies {
     testImplementation(libs.junit)
     // Android bundles org.json but stubs it in JVM unit tests; the real impl lets us test PTMD parsing.
     testImplementation(libs.org.json)
+    // Compose UI tests on the JVM (HomeContentTest): Robolectric stands in for a device.
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.ui.test.junit4)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

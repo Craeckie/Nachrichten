@@ -27,15 +27,17 @@ sealed interface PlayEvent {
     data class Failed(val message: String) : PlayEvent
 }
 
-class HeuteViewModel(application: Application) : AndroidViewModel(application) {
+class HeuteViewModel @JvmOverloads constructor(
+    application: Application,
+    private val repo: ZdfRepository = ZdfRepository(),
+) : AndroidViewModel(application) {
 
-    private val repo = ZdfRepository()
     private val qualityPreference = QualityPreference(application)
 
     private val _state = MutableStateFlow<UiState>(UiState.Loading)
     val state: StateFlow<UiState> = _state.asStateFlow()
 
-    /** True while a pull-to-refresh reload is in flight on top of an already-loaded list. */
+    /** True while a reload is in flight on top of a loaded list or an error. */
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -69,7 +71,9 @@ class HeuteViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() {
         syncTime()
-        val isReload = _state.value is UiState.Success
+        // Only the very first load swaps in the centre spinner. A reload (from the list or from
+        // an error) shows the pull indicator and keeps what is on screen until the answer comes.
+        val isReload = _state.value !is UiState.Loading
         if (isReload) {
             _isRefreshing.value = true
         } else {
