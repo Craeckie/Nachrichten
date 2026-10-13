@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -29,16 +32,16 @@ jobs:
         run: ./gradlew assembleRelease
 
       # Optional: sign APK if keystore secrets are configured
-      # Add these secrets to your repo: KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+      # Add these secrets to your repo: KEYSTORE_BASE64, KEYSTORE_PASSWORD
       - name: Sign APK
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: env.KEYSTORE_BASE64 != ''
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > keystore.jks
+          echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
           $ANDROID_SDK_ROOT/build-tools/$(ls $ANDROID_SDK_ROOT/build-tools | tail -1)/apksigner sign \
             --ks keystore.jks \
-            --ks-pass "pass:${{ secrets.KEYSTORE_PASSWORD }}" \
-            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
-            --key-pass "pass:${{ secrets.KEY_PASSWORD }}" \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" \
+            --ks-key-alias my-key \
+            --key-pass "pass:$KEYSTORE_PASSWORD" \
             app/build/outputs/apk/release/app-release-unsigned.apk
           mv app/build/outputs/apk/release/app-release-unsigned.apk \
              app/build/outputs/apk/release/app-release.apk
