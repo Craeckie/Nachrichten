@@ -1,0 +1,2 @@
+Choose the video quality (FHD, HD, …) in the format picker; your choice is remembered.
+Pull to refresh now also works on the error and "no episodes" screens.
